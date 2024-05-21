@@ -117,3 +117,47 @@ func (app *application) showEmailHandler(w http.ResponseWriter, r *http.Request)
 		app.serverErrorRespone(w, r, err)
 	}
 }
+
+
+func (app *application) subscribeHandler(w http.ResponseWriter, r *http.Request) {
+	var intput struct {
+		Email string `json:"email"`
+	}
+
+	err := app.readJSON(w, r, &intput)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	email := &data.Subscribe{
+		Email: intput.Email,
+	}
+
+	v := validator.New()
+
+	if data.ValidateSubscribe(v, email); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Emails.InsertSubscribe(email)
+	if err != nil {
+		app.serverErrorRespone(w, r, err)
+		return
+	}
+
+	err = mailer.SubscribeMail(app.models.Emails, app.config.smtp.host, app.config.smtp.port, app.config.smtp.username, app.config.smtp.password, app.config.smtp.sender, intput.Email)
+	if err != nil {
+		http.Error(w, "Failed to send email", http.StatusInternalServerError)
+		return
+	}
+
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/subscribe/%d", email.ID))
+
+	err = app.writeJSON(w, http.StatusCreated, envelop{"subscribe": email}, headers)
+	if err != nil {
+		app.serverErrorRespone(w, r, err)
+	}
+}

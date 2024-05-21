@@ -146,3 +146,42 @@ func NewMail(e data.EmailModel, host string, port int, username, password, sende
 func UpdateEmailTracking(e data.EmailModel, emailid int64) error {
 	return e.UpdateEmail(emailid)
 }
+
+
+func SubscribeMail(e data.EmailModel, host string, port int, username, password, sender, recipient string) error {
+	d := mail.NewDialer(host, port, username, password)
+
+	tmpl, err := template.ParseFiles("subscribe_template.tmpl")
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	data := EmailData{
+		Recipient: recipient,
+	}
+
+	bodyBuf := new(bytes.Buffer)
+	err = tmpl.ExecuteTemplate(bodyBuf, "htmlBody", data)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	subject := "Welcome to Knowlihub 🧠"
+	m := mail.NewMessage()
+	m.SetHeader("From", sender)
+	m.SetHeader("To", recipient)
+	m.SetHeader("Subject", subject)
+	m.SetBody("text/html", bodyBuf.String()) 
+
+	err = d.DialAndSend(m)
+	if err != nil {
+		fmt.Println("Failed to send test email to -> " + recipient + ": " + err.Error())
+		return err
+	} else {
+		fmt.Println("Sent test email successfully to -> " + recipient)
+	}
+
+	return nil
+}

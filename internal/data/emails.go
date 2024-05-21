@@ -19,6 +19,11 @@ type Email struct {
 	Subject    string    `json:"Subject"`
 }
 
+type Subscribe struct {
+	ID int64 `json:"id"`
+	Email string `json:"email"`
+}
+
 type EmailRecipient struct {
 	ID         int64          `json:"id"`
 	CreatedAt  time.Time      `json:"createdAt"`
@@ -36,8 +41,14 @@ type EmailModel struct {
 	DB *sql.DB
 }
 
+func ValidateSubscribe(v *validator.Validator, email *Subscribe) {
+	v.Check(email.Email != "", "email", "must be provided")
+	v.Check(validator.Matches(email.Email, validator.EmailRx), "email address", "must be valid email address")
+}
+
 func ValidateEmail(v *validator.Validator, email *Email) {
 	v.Check(email.Sender != "", "sender", "must be provided")
+	v.Check(validator.Matches(email.Sender, validator.EmailRx), "sender email address", "must be valid email address")
 	v.Check(len(email.Sender) >= 1, "sender", "must be more than 1 bytes long")
 	v.Check(len(email.Recipients) != 0, "recipients", "must be provided")
 	v.Check(len(email.Recipients) >= 1, "recipients", "must contain more than 1 recipient emails")
@@ -46,6 +57,17 @@ func ValidateEmail(v *validator.Validator, email *Email) {
 	v.Check(len(email.Subject) >= 1, "sender", "must be more than 1 bytes long")
 	v.Check(email.Body != "", "body", "must be provided")
 	v.Check(len(email.Body) >= 1, "body", "must be more than 1 bytes long")
+}
+
+func (e EmailModel) InsertSubscribe(email *Subscribe) error {
+	query := `INSERT INTO subscribers (email) VALUES ($1)`
+
+	_, err := e.DB.Exec(query, email.Email)
+	if err != nil {
+        return err
+    }
+
+    return nil
 }
 
 func (e EmailModel) InsertEmail(email *Email, recipient string) (int64, error) {
@@ -138,3 +160,5 @@ func (e EmailModel) UpdateEmailStatus(id int64) error {
 	_, err := e.DB.Exec(query, args...)
 	return err
 }
+
+
